@@ -2,8 +2,8 @@ import sys
 import heapq
 
 COST = {'A': 1, 'B': 10, 'C': 100, 'D': 1000}
-ROOM_X = [3, 5, 7, 9]
-HALLWAY_X = [1,2,4,6,8,10,11] 
+ROOM_EXITS = [2, 4, 6, 8]
+HALLWAY_FREE_POS = [0,1,3,5,7,9,10]
 
 def prepare_data(lines: list[str], depth : int) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]:
     """
@@ -25,6 +25,25 @@ def prepare_data(lines: list[str], depth : int) -> tuple[tuple[str, ...], tuple[
     rooms = tuple(zip(*rooms))
     return hallway, rooms
 
+def check_clear_path(hallway_state, start, end) -> bool:
+    """
+    Метод-проверка, свободен ли путь
+
+    Args:
+        hallway: текущее состояние коридора
+        start: точка старта
+        end: точка конца
+    
+    Returns:
+        True - если путь свободен
+        False - если путь не свободен
+    """
+    if start < end:
+        rng = range(start+1, end+1)
+    else:
+        rng = range(end, start)
+    return all(hallway_state[i] == '.' for i in rng)
+
 def generate_goal_state(depth: int) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]:
     """
     Генерация выигрышного состояния
@@ -32,7 +51,7 @@ def generate_goal_state(depth: int) -> tuple[tuple[str, ...], tuple[tuple[str, .
     Args:
         depth: глубина лабиринта
 
-    Returns: 
+    Returns:
         кортеж выигрышных ячеек коридора и кортеж ячеек комнат
     """
     goal_hallway = (".",) * 11
@@ -43,8 +62,59 @@ def generate_goal_state(depth: int) -> tuple[tuple[str, ...], tuple[tuple[str, .
         )
     return goal_hallway, goal_rooms
 
-def generate_move(state):
-    pass
+def generate_moves(state, depth):
+    """
+    Метод генерации ходов
+    
+    Args:
+        state: Текущее состояние комнат и коридора
+        depth: Глубина комнат
+
+    Returns:
+        Возвращает все возможные ходы из текущего состояния
+    """
+    hallway_state, rooms_state = state
+    moves = []
+
+    for current_pos, current_obj in enumerate(hallway_state):
+        if current_obj == '.':
+            continue
+        target_room_index = ord(current_obj) - ord('A')
+        target_room = rooms_state[target_room_index]
+        room_pos = ROOM_EXITS[target_room_index]
+        if all(room_obj == '.' or room_obj == current_obj for room_obj in target_room):
+            if check_clear_path(hallway_state, current_pos, room_pos):
+                depth_pos = depth - 1
+                while target_room[depth_pos] != '.':
+                    depth_pos -= 1
+                steps = abs(room_pos - current_pos) + depth_pos + 1
+                energy = steps * COST[current_obj]
+                new_hallway_state = list(hallway_state)
+                new_hallway_state[current_pos] = '.'
+                new_rooms_state = [list(room) for room in rooms_state]
+                new_rooms_state[target_room_index][depth_pos] = current_obj
+                moves.append(((tuple(new_hallway_state), tuple(tuple(room) for room in new_rooms_state)), energy))
+
+    for room_index, room in enumerate(rooms_state):
+        room_pos = ROOM_EXITS[room_index]
+        for depth_pos, current_obj in enumerate(room):
+            if current_obj == '.':
+                continue
+            if current_obj == chr(ord('A')+room_index) and all(room_obj == current_obj for room_obj in room[depth_pos:]):
+                break
+            if any(room_obj != '.' for room_obj in room[:depth_pos]):
+                break
+            for current_pos in HALLWAY_FREE_POS:
+                if check_clear_path(hallway_state, room_pos, current_pos):
+                    steps = abs(room_pos - current_pos) + depth_pos + 1
+                    energy = steps * COST[current_obj]
+                    new_hallway_state = list(hallway_state)
+                    new_hallway_state[current_pos] = current_obj
+                    new_rooms_state = [list(room) for room in rooms_state]
+                    new_rooms_state[room_index][depth_pos] = '.'
+                    moves.append(((tuple(new_hallway_state), tuple(tuple(room) for room in new_rooms_state)), energy))
+            break
+    return moves
 
 def solve(lines: list[str]) -> int:
     """
@@ -68,13 +138,9 @@ def solve(lines: list[str]) -> int:
         visited[current_state] = energy
         if current_state == goal_state:
             return energy
-        for move, cost in generate_move(state): # type: ignore
-            heapq.heappush(heap, (cost, (energy+cost, move)))
-
-
-
-    
-    return 0
+        for new_state, cost in generate_moves(current_state, depth):
+            heapq.heappush(heap, (energy+cost, new_state))
+    return -1
 
 
 def main():
@@ -82,7 +148,6 @@ def main():
     lines = []
     for line in sys.stdin:
         lines.append(line.rstrip('\n'))
-    print(tuple(tuple(chr(ord("A")+i) for _ in range(2)) for i in range(5)))
     result = solve(lines)
     print(result)
 
