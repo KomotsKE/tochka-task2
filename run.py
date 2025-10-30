@@ -140,11 +140,10 @@ def solve(lines: list[str]) -> int:
             return energy
         for new_state, cost in generate_moves(current_state, depth):
             heapq.heappush(heap, (energy+cost, new_state))
-    return -1
+    return 0
 
 
 def main():
-    # Чтение входных данных
     lines = []
     for line in sys.stdin:
         lines.append(line.rstrip('\n'))
