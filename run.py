@@ -142,14 +142,12 @@ def solve(lines: list[str]) -> int:
             heapq.heappush(heap, (energy+cost, new_state))
     return 0
 
-
 def main():
     lines = []
     for line in sys.stdin:
         lines.append(line.rstrip('\n'))
     result = solve(lines)
     print(result)
-
 
 if __name__ == "__main__":
     main()
